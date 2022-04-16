@@ -1,104 +1,79 @@
 from tkinter import *
-import math
-# ---------------------------- CONSTANTS ------------------------------- #
-PINK = "#e2979c"
-RED = "#e7305b"
-GREEN = "#9bdeac"
-YELLOW = "#f7f5dd"
-FONT_NAME = "Courier"
-WORK_MIN = 25
-SHORT_BREAK_MIN = 5
-LONG_BREAK_MIN = 20
-reps = 0
-timer = None
-checkmark = "✔"
+from PIL import ImageTk, Image
+import pandas
+import random
+from gtts import gTTS
+import os
+import playsound
+
+BACKGROUND_COLOR = "#B1DDC6"
+current_card = {}
 
 
-# ---------------------------- TIMER RESET ------------------------------- #
+try:
+    data = pandas.read_csv("data/words_to_learn.csv")
+except FileNotFoundError:
+    original_data = pandas.read_csv("data/french_words.csv")
+    print(original_data)
+    to_learn = original_data.to_dict(orient="records")
+else:
+    to_learn = data.to_dict(orient="records")
 
 
-def reset_timer():
-    window.after_cancel(timer)
-    canvas.itemconfig(timer_text, text=f"00:00")
-    timer_label.config(text="Timer", bg=YELLOW, fg=GREEN, font=(FONT_NAME, 45))
-    checkmark_label.config(text="")
-    global reps
-    reps = 0
+def is_known():
+    to_learn.remove(current_card)
+    print(len(to_learn))
+    data1 = pandas.DataFrame(to_learn)
+    data1.to_csv("data/words_to_learn.csv", index=False)
+    next_card()
 
 
-# ---------------------------- TIMER MECHANISM ------------------------------- #
-
-def start_timer():
-    global reps
-    reps += 1
-
-    work_sec = WORK_MIN * 60
-    short_break_sec = SHORT_BREAK_MIN * 60
-    long_break_sec = LONG_BREAK_MIN * 60
-
-    if reps % 8 == 0:
-        window.bell()
-        window.attributes('-topmost', True)
-        timer_label.config(text="Break", fg=RED, bg=YELLOW, font=(FONT_NAME, 45))
-        count_down(long_break_sec)
-    elif reps % 2 == 0:
-        window.bell()
-        window.attributes('-topmost', True)
-        timer_label.config(text="Break", fg=PINK, bg=YELLOW, font=(FONT_NAME, 45))
-        count_down(short_break_sec)
-    else:
-        timer_label.config(text="Work", fg=GREEN, bg=YELLOW, font=(FONT_NAME, 45))
-        count_down(work_sec)
+def next_card():
+    language = 'fr'
+    global current_card, flip_timer
+    window.after_cancel(flip_timer)
+    current_card = random.choice(to_learn)
+    canvas.itemconfig(card_title, text="French", fill='black')
+    canvas.itemconfig(card_word, text=current_card['French'], fill="black")
+    canvas.itemconfig(card_background, image=card_front_img)
+    audio = gTTS(text=current_card['French'], lang=language)
+    audio.save('french.mp3')
+    playsound.playsound('/Users/Jaisinghani/Desktop/pycharm_projects/flash-card-project-start/french.mp3', True)
+    os.remove('french.mp3')
+    flip_timer = window.after(3000, func=flip_card)
 
 
-# ---------------------------- COUNTDOWN MECHANISM ------------------------------- #
-
-
-def count_down(count):
-    count_min = math.floor(count/60)
-    count_sec = count % 60
-
-    if count_sec <= 9:
-        count_sec = f"0{count_sec}"
-
-    canvas.itemconfig(timer_text, text=f"{count_min}:{count_sec}")
-    if count > 0:
-        global timer
-        timer = window.after(1000, count_down, count-1)
-    else:
-        start_timer()
-        marks = ""
-        work_sessions=math.floor(reps/2)
-        for _ in range(work_sessions):
-            marks += checkmark
-        checkmark_label.config(text=marks)
-
-
-# ---------------------------- UI SETUP ------------------------------- #
+def flip_card():
+    canvas.itemconfig(card_title, text="English", fill="white")
+    canvas.itemconfig(card_word, text=current_card['English'], fill="white")
+    canvas.itemconfig(card_background, image=card_back_img)
 
 
 window = Tk()
-window.title("Pomodoro")
-window.config(padx=100, pady=50, bg=YELLOW)
+window.title("Flashy")
+window.config(padx=50, pady=50, bg=BACKGROUND_COLOR)
 
-canvas = Canvas(width=200, height=224, bg=YELLOW, highlightthickness=0)
-tomato = PhotoImage(file="tomato.png")
-canvas.create_image(100, 112, image=tomato)
-timer_text = canvas.create_text(102, 130, text="00:00", fill="white", font=(FONT_NAME, 30, 'bold'))
-canvas.grid(column=1, row=2)
-#count_down(5)
+flip_timer = window.after(3000, func=flip_card)
 
-timer_label = Label(text="Timer", bg=YELLOW, fg=GREEN, font=(FONT_NAME, 45))
-timer_label. grid(column=1, row=0)
+canvas = Canvas(width=800, height=526)
+card_front_img = ImageTk.PhotoImage(Image.open("images/card_front.png"))
+card_back_img = ImageTk.PhotoImage(Image.open(('images/card_back.png')))
+card_background = canvas.create_image(400, 263, image=card_front_img)
 
-start_button = Button(text="Start", highlightthickness=0, command=start_timer)
-start_button.grid(column=0, row=3)
+card_title = canvas.create_text(400, 150, text="", font=('Arial', 40, 'italic'))
+card_word = canvas.create_text(400, 263, text="", font=('Arial', 60, 'bold'))
+canvas.config(bg=BACKGROUND_COLOR, highlightthickness=0)
+canvas.grid(column=0, row=0, columnspan=2)
 
-reset_button = Button(text="Reset", highlightthickness=0, command=reset_timer)
-reset_button.grid(column=2, row=3)
+right_image = PhotoImage(file="./images/right.png")
+right_button = Button(image=right_image, highlightthickness=0, border=0, command=is_known)
+right_button.grid(column=1, row=1, padx=15, pady=15)
 
-checkmark_label = Label()
-checkmark_label.grid(column=1, row=4)
+wrong_image = PhotoImage(file="./images/wrong.png")
+wrong_button = Button(image=wrong_image, highlightthickness=0, border=0, command=next_card)
+wrong_button.grid(column=0, row=1, padx=15, pady=15)
+
+next_card()
 
 
 window.mainloop()
