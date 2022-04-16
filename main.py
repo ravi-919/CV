@@ -1,43 +1,47 @@
-import turtle
-import pandas
-
-screen = turtle.Screen()
-screen.title("U.S. States guessing game")
-image = "blank_states_img.gif"
-screen.addshape(image)
-turtle.shape(image)
-
-game_is_on = True
-
-states_file = pandas.read_csv("50_states.csv")
-states = states_file.state
-correct_guesses = []
-
-while len(correct_guesses) < 50:
-
-    answer_state = screen.textinput(title=f"{len(correct_guesses)}/50 States Correct" , prompt="What's another state's "
-                                                                                               "name?").title()
-    if answer_state == 'Exit':
-        missing_states = []
-        for item in states:
-            if item not in correct_guesses:
-                missing_states.append(item)
-        new_df = pandas.DataFrame(missing_states)
-        new_df.to_csv("states_to_learn.csv")
-        break
-
-    for item in states:
-        if item == answer_state:
-            correct_guesses.append(answer_state)
-            turtle2 = turtle.Turtle()
-            turtle2.hideturtle()
-            turtle2.penup()
-            answer_state_x = float(states_file[states_file['state'] == answer_state]['x'])
-            answer_state_y = float(states_file[states_file['state'] == answer_state]['y'])
-            # print(answer_state_x)
-            # print(answer_state_y)
-            turtle2.goto(answer_state_x, answer_state_y)
-            turtle2.write(answer_state)
+from pprint import pprint  # 4. Pass the data back to the main.py file, so that you can print the data from main.py
+from data_manager import DataManager
+from flight_data import FlightData
+from datetime import datetime, timedelta
+from flight_search import FlightSearch
+from notification_manager import NotificationManager
 
 
-# states_to_learn.csv
+ORIGIN_CITY_IATA = "LON"
+
+flight_search = FlightSearch()
+data_manager = DataManager()
+sheet_data = data_manager.get_destination_data()
+notification_manager = NotificationManager()
+pprint(sheet_data)
+
+#  5. In main.py check if sheet_data contains any values for the "iataCode" key.
+#  If not, then the IATA Codes column is empty in the Google Sheet.
+#  In this case, pass each city name in sheet_data one-by-one
+#  to the FlightSearch class to get the corresponding IATA code
+#  for that city using the Flight Search API.
+# #  You should use the code you get back to update the sheet_data dictionary.
+
+if sheet_data[0]["iataCode"] == "":
+    for row in sheet_data:
+        row["iataCode"] = flight_search.get_destination_code(row["city"])
+    #print(f"sheet_data:\n {sheet_data}")
+
+    data_manager.destination_data = sheet_data
+    data_manager.update_destination_codes()
+    sheet_data = data_manager.destination_data
+
+tomorrow = datetime.now() + timedelta(days=1)
+six_month_from_today = datetime.now() + timedelta(days=(6 * 30))
+
+for destination in sheet_data:
+    flight = flight_search.check_flights(
+        ORIGIN_CITY_IATA,
+        destination["iataCode"],
+        from_time=tomorrow,
+        to_time=six_month_from_today,
+        destination_city=destination['city']
+    )
+    if flight is None:
+        continue
+
+    notification_manager.send_emails(flight, destination)
