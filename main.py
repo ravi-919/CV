@@ -1,50 +1,67 @@
-from turtle import Screen
-from snake import Snake
-import time
-from food import Food
-from scoreboard import Score
+import requests
+from datetime import datetime
+from requests.auth import HTTPBasicAuth
+import os
 
-screen = Screen()
-screen.bgcolor("black")
-screen.title("The snake game")
-screen.setup(width=600, height=600)
-screen.tracer(0)
-snake = Snake()
-food = Food()
-score = Score()
+USER = 'ravi18'
+PASSWORD = 'Remos@18'
+TOKEN = 'hgmdsgaegy'
 
-screen.listen()
-screen.onkey(fun=snake.up, key="Up")
-screen.onkey(fun=snake.down, key="Down")
-screen.onkey(fun=snake.left, key="Left")
-screen.onkey(fun=snake.right, key="Right")
+headers2 = {
+    "Authorization": "Bearer hgmdsgaegy"
+}
 
+APP_ID = '3f60cc98'
+APP_KEY = '53544fc76ea3ac1122a31a888c921e8d'
 
-is_game_on = True
-while is_game_on:
-    screen.update()
-    time.sleep(0.1)
-    snake.move()
+GENDER = 'male'
+WEIGHT = 77
+HEIGHT = 172.72
+AGE = 25
 
-    #Detect collision with food
+exercise_endpoint = 'https://trackapi.nutritionix.com/v2/natural/exercise'
 
-    if snake.head.distance(food) < 15:
-        food.refresh()
-        snake.extend()
-        score.score_update()
+exercise_input = input("Which exercises you did today?")
 
-    #Detect collision with wall
-    if snake.head.xcor() > 285 or snake.head.xcor() < -285 or snake.head.ycor() > 285 or snake.head.ycor() < -285:
-        score.reset()
-        snake.reset()
+params = {
+    "x-remote-user-id": 0
+}
 
-    #detect collision with itself
-    #If head collides with any segment in the tail then trigger the game_over sequence
-
-    for snake_parts in snake.snake_objects[1:]:
-        if snake.head.distance(snake_parts) < 10:
-            score.reset()
-            snake.reset()
+headers = {
+    "x-app-id": APP_ID,
+    "x-app-key": APP_KEY,
+}
 
 
-screen.exitonclick()
+exer_para = {
+    "query": exercise_input,
+    "weight_kg": WEIGHT,
+    "height_cm": HEIGHT,
+    "age": AGE,
+    "gender": GENDER,
+}
+
+
+today = datetime.now()
+sheet_post_endpoint = 'https://api.sheety.co/e85a96f97550d4b253bce2e51a89c91e/copyOfMyWorkouts/workouts'
+
+response = requests.post(url=exercise_endpoint, json=exer_para, headers=headers)
+op = response.json()
+print(op)
+
+for i in op['exercises']:
+    work_param = {
+        "workout":
+            {
+                "date": datetime.now().strftime("%d/%m/%Y"),
+                "time": datetime.now().strftime("%X"),
+                "exercise": i['user_input'].title(),
+                "duration": i['duration_min'],
+                "calories": i['nf_calories'],
+
+            }
+
+    }
+
+    response2 = requests.post(url=sheet_post_endpoint, headers=headers2, json=work_param)
+    print(response2)
